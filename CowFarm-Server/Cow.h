@@ -33,13 +33,15 @@ public:
     
     int getXPosition();
     int getYPosition();
+    int getDirection();
+    Cow& setDirection(int dir);
     Cow &move(int x, int y);
     
 private:
     string name;
     int socket;
     Farm *farm;
-    int x, y;
+    int x, y, dir;
 };
 
 #endif	/* COW_H */

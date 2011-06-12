@@ -16,8 +16,9 @@ Cow::Cow(int socket) {
     this->socket = socket;
     this->name = "";
     this->farm = 0;
-    this->x = 0;
-    this->y = 0;
+    this->x = 10;
+    this->y = 10;
+    this->dir = 1;
 }
 
 Cow::Cow(const Cow& orig) {
@@ -75,7 +76,14 @@ int Cow::getXPosition(){
 int Cow::getYPosition(){
     return y;
 }
-Cow &Cow::move(int x, int y){
+int Cow::getDirection(){
+    return dir;
+}
+Cow& Cow::setDirection(int dir){
+    this->dir = dir;
+    return *this;
+}
+Cow &Cow::move(int x, int y){    
     this->x = x;
     this->y = y;
     return *this;

@@ -226,9 +226,15 @@ void CowFarmServer::parseMessageFromCow(Cow *cow, char *message){
         getline(msg_ss, dx_str, ',');
         getline(msg_ss, dy_str);
         
-        cow->move(
-                cow->getXPosition() + atoi(dx_str.c_str()),
-                cow->getYPosition() + atoi(dy_str.c_str()));
+        int dx = atoi(dx_str.c_str());
+        int dy = atoi(dy_str.c_str());
+        
+        cow->move(cow->getXPosition() + dx,
+                  cow->getYPosition() + dy);
+       
+        if(dx<0)      cow->setDirection(0);
+        else if(dx>0) cow->setDirection(1);
+        
         cow->getFarm()->cowList();
         
     }
