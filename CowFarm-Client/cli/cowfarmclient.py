@@ -6,8 +6,10 @@ import curses
 import getopt
 
 class ServerConnection:
+    """ Send and receive data from the server """
 
     def __init__(self, host, port):
+        """ Open connection, initialize values """
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
         self.socket.setblocking(0)
@@ -18,6 +20,7 @@ class ServerConnection:
         self.msgs = []
 
     def recv(self, thread):
+        """ Wait for data from the server """
         while True:
             try:
                 self.lastData = self.socket.recv(1024)
@@ -26,12 +29,14 @@ class ServerConnection:
                 pass
 
     def parseData(self, data):
-        
+        """ Parse the data from the server """
 
+        #List of farms
         if data[0:8] == "farmlist":
             self.farms = data.splitlines()
             del self.farms[0]
-        
+
+        #List of cows
         elif data[0:7] == "cowlist":
             cows = data.splitlines()
             del cows[0]
@@ -48,6 +53,7 @@ class ServerConnection:
                 self.cows.append(c)
             fd.needsRender = True;
 
+        #New message from cow
         elif data[0:8] == "msg from":
             p = data.split(': ')
             m = {}
@@ -57,39 +63,42 @@ class ServerConnection:
             self.msgs.insert(0, m)
             fd.needsRender = True;
 
-
-
-
     def send(self, msg):
+        """ Send data to server """
         self.socket.sendall(msg+'\n')
 
     def setName(self, name):
+        """ Set cow's name """
         self.send("name: " + name)
         time.sleep(1)
         if self.lastData != "OK\n":
             raise ValueError
 
     def getFarmList(self):
+        """ Get the list of farms available """
         self.send("farmlist")
         time.sleep(1)
         return self.farms
 
     def joinFarm(self, farm):
+        """ Join the the given farm """
         self.send("join: " + farm)
         time.sleep(1)
 
     def sendMsg(self, msg):
+        """ Send message to the other cows in the farm """
         self.send("msg: "+msg)
 
     def move(self, dx, dy):
+        """ Move the cow relatively """
         self.send("move: %d, %d" % (dx, dy))
 
 
-
-
 class FarmDisplay:
+    """ Display the farm in the command line """
 
     def __init__(self):
+        """ Initilalize ncurses, set default values """
         self.scr = curses.initscr()
         curses.noecho()
         curses.raw()
@@ -101,6 +110,7 @@ class FarmDisplay:
         thread.start_new_thread(self.refresh, ("RefreshThread",))
 
     def refresh(self, thread):
+        """ Rerender the screen if necessary """
         while True:
             if self.needsRender:
                 try:
@@ -110,11 +120,9 @@ class FarmDisplay:
                     pass
 
     def drawUI(self):
-
+        """ Draw the User Interface """
         self.scr.clear()
-
         self.renderCows()
-
         self.scr.border(0)
         self.scr.hline(self.maxY-3, 1, curses.ACS_HLINE, self.maxX-2)
         if self.textinput:
@@ -125,9 +133,8 @@ class FarmDisplay:
 
         self.scr.refresh()
 
-
-    #trim print
     def trint(self, y, x, str):
+        """ Write string to screen with border protection """
         if y<1 or y>self.maxY-4:
             return
 
@@ -146,16 +153,20 @@ class FarmDisplay:
 
 
     def getMsgForCow(self, cow_id):
+        """ Get the last message of the given cow """
         for msg in sc.msgs:
             if msg["cow_id"] == cow_id:
                 return msg
         return None
 
     def renderBubble(self, x, y, dir, text):
+        """ Render a message bubble at the given position """
         maxWidth = 40
         words = text.split(" ")
         lines = []
         tmp = ""
+
+        #Organize words into lines
         for word in words:
             
             if len(word) < maxWidth:
@@ -192,6 +203,7 @@ class FarmDisplay:
             if len(line) > width:
                 width = len(line)
 
+        #Determine coordinates
         if dir == 0:
             x = x-12
             y = y-height-2
@@ -199,7 +211,7 @@ class FarmDisplay:
             x = x+16+12-(width+4)
             y = y-height-2
 
-
+        #Print lines
         i=0
         while i<height:
             start = "< "
@@ -219,9 +231,11 @@ class FarmDisplay:
             self.trint(y+i+1, x+width+2, end)
             i+=1
 
+        #Print top and bottom of bubble
         self.trint(y, x+1, "_"*(width+2))
         self.trint(y+height+1, x+1, "-"*(width+2))
 
+        #Print bubble line
         if dir == 0:
             self.trint(y+height+2, x+8, "\\")
             self.trint(y+height+3, x+9, "\\")
@@ -229,10 +243,8 @@ class FarmDisplay:
             self.trint(y+height+2, x+width+4-9, "/")
             self.trint(y+height+3, x+width+4-10, "/")
 
-
-
     def renderCows(self):
-
+        """ Draw the cows with characters """
         for cow in sc.cows:
             x = cow["x"]+1
             y = cow["y"]+1
@@ -254,14 +266,12 @@ class FarmDisplay:
                 self.trint(y+4, x+3,   "||     ||")
                 self.trint(y+5, x, cow["name"].center(16))
 
+            #Render bubble
             if msg != None:
                 self.renderBubble(x, y, dir, msg["text"])
 
-        
-
-
     def reset_curses(self):
-        #set back to normal
+        """ Set back to normal the terminal """
         self.scr.keypad(0)
         curses.echo()
         curses.nocbreak()
@@ -271,6 +281,7 @@ class FarmDisplay:
 
 
 def usage():
+    """ Print the usage info """
     print "Usage:"
     print "cowfarmclient [-h, --help] [-s host, --host=host] [-p port, --port=port]"
     print "\t-h: Prints this message"
@@ -281,6 +292,7 @@ def usage():
 
 if __name__=='__main__':
 
+    #Read arguments
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hs:p:", ["help", "host=", "port="])
     except getopt.GetoptError, err:
@@ -288,9 +300,11 @@ if __name__=='__main__':
         usage()
         sys.exit(2)
 
+    #Default arguments
     host = "localhost"
     port = 8765
 
+    #Process entered arguments
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -302,13 +316,14 @@ if __name__=='__main__':
         else:
             assert False, "unhandled option"
 
-
+    #Open server connection
     try:
         sc = ServerConnection(host, port)
     except:
         print "Unable to connect to %s on port %d" % (host, port)
         sys.exit(2)
 
+    #Set name
     while True:
         try:
             name = raw_input("Enter your name: ")
@@ -317,6 +332,7 @@ if __name__=='__main__':
         except ValueError:
             print "Name already taken."
 
+    #Choose farm
     farms = sc.getFarmList()
     if len(farms) != 0:
         print "Farms:"
@@ -331,8 +347,8 @@ if __name__=='__main__':
 
     while True:
 
+        #Type a message
         if fd.textinput:
-
             curses.echo()
             curses.nocbreak()
 
@@ -348,10 +364,9 @@ if __name__=='__main__':
 
             fd.needsRender = True
 
+        #Navigate cow
         else:
-            
             char = fd.scr.getch()
-            
             if char == curses.KEY_UP:
                 sc.move(0, -1)
             if char == curses.KEY_DOWN:
