@@ -260,7 +260,7 @@ class FarmDisplay:
         
 
 
-    def __del__(self):
+    def reset_curses(self):
         #set back to normal
         self.scr.keypad(0)
         curses.echo()
@@ -281,7 +281,6 @@ def usage():
 
 if __name__=='__main__':
 
-    #TODO: read parameters: --host --port --name --farm
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hs:p:", ["help", "host=", "port="])
     except getopt.GetoptError, err:
@@ -369,4 +368,4 @@ if __name__=='__main__':
                 fd.textinput = True
                 fd.needsRender = True
 
-    del fd
+    fd.reset_curses()
