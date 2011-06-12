@@ -46,7 +46,8 @@ Farm &Farm::cowList(){
         ss << (*it)->getSocket() << ": ";
         ss << (*it)->getName() << ", ";
         ss << (*it)->getXPosition() << ", ";
-        ss << (*it)->getYPosition() << endl;
+        ss << (*it)->getYPosition() << ", ";
+        ss << (*it)->getDirection() << endl;
     }
     
     string msg = ss.str();  
