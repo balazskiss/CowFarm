@@ -1,0 +1,468 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        
+        <title>JsSocket Test</title>
+
+        <link type="text/css" href="css/ui-lightness/jquery-ui-1.8.13.custom.css" rel="stylesheet" />
+        <link type="text/css" href="css/main.css" rel="stylesheet" />
+        <script type="text/javascript" src="js/jquery-1.5.1.min.js"></script>
+        <script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js"></script>
+        <script src="js/swfobject.js" language="javascript"></script>
+    
+        <script>
+
+            var _jssocket = null;
+            var _farms = new Array();
+            var _cows = new Array();
+            var _msgs = new Array();
+            var _farm = new Array();
+            
+
+            $(function(){
+                var so = new SWFObject("JsSocket.swf", "mymovie", "470", "200", "8", "#FFFFFF");
+                so.addParam("allowScriptAccess", "always");
+   		so.write("flashcontent");
+
+                $("#send").click(function()
+                {
+                    _jssocket.write($("#message").val()+"\n");
+                    $("#message").val("");
+                });
+
+                
+            });
+
+            function getArrows(ev) {
+
+                arrows=((ev.which)||(ev.keyCode));
+
+                switch(arrows) {
+
+                 case 37:
+                   _jssocket.write("move: -1, 0\n");
+                   break;
+
+                 case 38:
+                   _jssocket.write("move: 0, -1\n");
+                   break;
+
+                 case 39:
+                   _jssocket.write("move: 1, 0\n");
+                   break;
+
+                 case 40:
+                   _jssocket.write("move: 0, 1\n");
+                   break;
+
+                  }
+             }
+
+
+            function dialog_connect(){
+                $( "#dialog-connect" ).dialog({
+                    height: 140,
+                    width: 360,
+                    modal: true,
+                    resizable: false,
+                    draggable: false,
+                    closeOnEscape: false,
+                    open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); }
+
+                });
+            }
+
+            function dialog_name(){
+                $( "#dialog-name" ).dialog({
+                    height: 250,
+                    width: 360,
+                    modal: true,
+                    resizable: false,
+                    draggable: false,
+                    closeOnEscape: false,
+                    open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); },
+                    buttons: {
+                        "OK": function() {
+                            _jssocket.write("name: "+$("#name").val()+"\n");
+                            $( this ).dialog("close");
+                        }
+                    }
+
+                });
+            }
+
+
+            function dialog_farm(){
+                if(_farms.length > 0)
+                    $("#dialog-farm p.nofarms").hide();
+                else
+                    $("#dialog-farm p.nofarms").show();
+
+                for(var i=0; i<_farms.length; i++){
+                    $("#dialog-farm p.nofarms").after("<p><input type='button' value='"+_farms[i]+"' onclick='join_farm(\""+_farms[i]+"\")' /></p>")
+                }
+                
+                $("#dialog-farm input:button").button();
+
+
+                $("#dialog-farm").dialog({
+                    height: 360,
+                    width: 360,
+                    modal: true,
+                    resizable: true,
+                    draggable: true,
+                    closeOnEscape: false,
+                    open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); },
+                    buttons: {
+                        "OK": function() {
+                            join_farm($("#farmname").val())
+                        }
+                    }
+
+                });
+            }
+
+            function join_farm(farm){
+                _jssocket.write("join: "+farm+"\n");
+                $("#dialog-farm").dialog("close");
+            }
+            
+            $(document).ready(function() {
+                dialog_connect();
+                var t = setTimeout("jssocket_connect()", 2000);
+            });
+
+
+            function parse_farmlist(str){
+                _farms = new Array
+
+                lines = str.split("\n");
+                lines.shift();
+                for(i=0; i<lines.length; i++){
+                    line = lines[i]
+                    if(line == "")
+                        continue;
+
+                    _farms.push(line);
+
+                }
+
+            }
+
+            function parse_cowlist(str){
+                _cows = new Array();
+
+                lines = str.split("\n");
+                lines.shift();
+                for(i=0; i<lines.length; i++){
+                    line = lines[i]
+                    if(line == "")
+                        continue;
+
+                    cow = new Array();
+                    p = line.split(":");
+                    cow["id"] = parseInt(p[0]);
+                    p = p[1].split(", ");
+                    cow["name"] = p[0].substr(1);
+                    cow["x"] = parseInt(p[1]);
+                    cow["y"] = parseInt(p[2]);
+
+                    _cows.push(cow);
+
+                }
+            }
+
+
+            function parse_msg(str){
+                p = str.split(":")
+                ls = p[0].lastIndexOf(" ")
+                msg = new Array();
+                msg["id"] = parseInt(p[0].substr(ls))
+                msg["text"] = p[1].substr(1, p[1].length-2);
+                _msgs.unshift(msg);
+            }
+
+            function get_msg_for_cow(cow_index){
+                cow = _cows[cow_index];
+
+                for(var i=0; i<_msgs.length; i++){
+                    if(_msgs[i]["id"] == cow["id"]){
+                        return _msgs[i]
+                    }
+                }
+
+                return null;
+            }
+
+            function str_repeat(str, count){
+                var n_str = "";
+                for(var i=0; i<count; i++)
+                    n_str = n_str + str;
+                return n_str;
+            }
+
+            function render_bubble(x, y, text){
+                var max_width = 40;
+                words = text.split(" ");
+                lines = new Array();
+                tmp = "";
+
+                for(var i=0; i<words.length; i++){
+                    word = words[i];
+
+                    if(word.length < max_width){
+                        if(tmp.length+word.length+1 <= max_width){
+                            if(word.length == 0)
+                                tmp = word
+                            else
+                                tmp = tmp + " " + word
+                        }
+                        else{
+                            lines.push(tmp)
+                            tmp = ""
+                        }
+                    }
+
+                    else if(word.length == max_width){
+                        if(tmp.length != 0){
+                            lines.push(tmp)
+                            tmp = ""
+                        }
+                        lines.push(word)
+                    }
+
+                    else if(word.length > max_width){
+                        var space = max_width - tmp.length - 1;
+                        if(tmp.length == 0)
+                            lines.push(word.substr(0,space))
+                        else
+                            lines.push(tmp + " " + word.substr(0, space))
+                        tmp = word.substr(space)
+                    }
+                }
+
+                if(tmp != "")
+                    lines.push(tmp)
+
+                //Size of bubble
+                var height = lines.length
+                var width = 0
+                for(var i=0; i<lines.length; i++)
+                    if(lines[i].length > width)
+                        width = lines[i].length
+
+                render_string(x-11, y-height-2, str_repeat("_", width+2))
+                render_string(x-11, y-1, str_repeat("-", width+2))
+                render_string(x-4, y, "\\")
+                render_string(x-3, y+1, "\\")
+
+                for(var i=0; i<height; i++){
+                    var start = "< "
+                    var end = " >"
+                    if(height != 1){
+                        if(i == 0){
+                            start = "/ "
+                            end = " \\"
+                        }
+                        else if(i == height-1){
+                            start = "\\ "
+                            end = " /"
+                        }else{
+                            start = "| "
+                            end = " |"
+                        }
+                    }
+
+                    render_string(x-12, y-height+i-1, start)
+                    render_string(x-10, y-height+i-1, lines[i])
+                    render_string(x-10+width, y-height+i-1, end)
+                }
+
+            }
+            
+            function render_string(x, y, str){
+                
+                if(y<0) return;
+
+                for(var i=0; i<=y; i++){
+                    if(_farm[i] == undefined){
+                        _farm.push("");
+                    }
+                }
+
+                while(_farm[y].length < x){
+                    _farm[y] = _farm[y] + ' ';
+                }
+
+                _farm[y] = _farm[y].substr(0, x) + str + _farm[y].substr(x+str.length);
+
+                
+            }
+
+            function render_cow(cow_index){
+                cow = _cows[cow_index];
+                x = cow["x"]
+                y = cow["y"]
+                msg = get_msg_for_cow(cow_index);
+
+                render_string(x, y+0, "^__^")
+                render_string(x, y+1, "(oo)\\_______")
+                render_string(x, y+2, "(__)\\       )\\/\\")
+                render_string(x, y+3, "    ||----w |")
+                render_string(x, y+4, "    ||     ||")
+                render_string(x, y+5, cow["name"])
+
+                if(msg != null)
+                    render_bubble(x, y, msg["text"]);
+            }
+
+            function render_farm(){
+                _farm = new Array();
+                $("#farm pre").html("")
+
+                for(i=0; i<_cows.length; i++){
+                    render_cow(i);
+                }
+
+                
+                for(i=0; i<_farm.length; i++){
+                    $("#farm pre").append(_farm[i] + "\n");
+                }
+                
+            }
+
+
+
+
+            function jssocket_connect(){
+                if(_jssocket != null){
+                    _jssocket.connect("127.0.0.1", "8765");
+                    $("#messages").append("Connecting<br />\n");
+                }
+                $("#dialog-connect").dialog( "close" );
+                dialog_name();
+            }
+            
+            
+            function jssocket_init()
+            {
+                // This is the id/name of the flash object
+                _jssocket = document.getElementById("mymovie");
+            
+                // Set callbacks for flash to call
+                _jssocket.setCallBack("connect","soc_connect");
+                _jssocket.setCallBack("disconnect","soc_closed");
+                _jssocket.setCallBack("recieve","soc_msg");
+                _jssocket.setCallBack("ioerror","soc_error");
+            }
+
+
+
+
+
+            // Called when socket connects
+            function soc_connect(){
+                $("#messages").append("Socket Connected<br />\n");;
+            }
+
+            function soc_error(){
+                $("#messages").append("There was an error connecting<br />\n");;
+            }
+            
+            // Called when socket is closed
+            function soc_closed(){
+                $("#messages").append("Socket Closed<br />\n");;
+            }
+            
+            // Called when socket receives message
+            function soc_msg(msg){
+                $("#messages").append("Recieved Message: "+msg);
+
+                if(msg == "Name already taken!\n"){
+                    $("#dialog-name p").show();
+                    dialog_name();
+                }
+
+                else if(msg == "OK\n"){
+                    _jssocket.write("farmlist\n");
+                }
+
+                else if(msg.substr(0,8) == "farmlist"){
+                    parse_farmlist(msg);
+                    dialog_farm();
+                }
+
+                else if(msg.substr(0,7) == "cowlist"){
+                    parse_cowlist(msg);
+                    render_farm();
+                }
+
+                else if(msg.substr(0,8) == "msg from"){
+                    parse_msg(msg);
+                    render_farm();
+                }
+
+                else{
+                    alert(msg);
+                }
+            }
+
+
+        </script>
+    </head>
+
+    <body onkeydown="getArrows(event)">
+        
+        <div id="dialog-connect" title="Connecting" style="display:none">
+            <p>Connecting to server in progress...</p>
+        </div>
+
+        <div id="dialog-name" title="Please enter your name" style="display:none">
+            <p class="ui-state-highlight" style="display:none;">Name already taken!</p>
+            <form>
+            <fieldset>
+                    <label for="name">Name: </label>
+                    <input type="text" name="name" id="name" class="text ui-widget-content ui-corner-all" />
+            </fieldset>
+            </form>
+        </div>
+
+        <div id="dialog-farm" title="Select a farm" style="display:none">
+            <p>Available farms: </p>
+            <p style="text-align:center;" class="nofarms"><i>no farms available</i></p>
+            <p>Create new farm: </p>
+            <form>
+            <fieldset>
+                    <label for="name">Farm's name: </label>
+                    <input type="text" name="farmname" id="farmname" class="text ui-widget-content ui-corner-all" />
+            </fieldset>
+            </form>
+        </div>
+
+
+        <div id="status">
+     
+            <textarea id="messages" readonly="readonly"></textarea>
+
+            <div id="flashcontent">
+              This text is replaced by the Flash movie.
+            </div>
+            
+        </div>
+
+        <div id="farm">
+            <pre></pre>
+        </div>
+
+        <div id="msg_input">
+            <input type="text" id="message" value="" class="send" />
+            <button id="send" class="send" >Send</button>
+        </div>
+
+    </body>
+
+</html>
