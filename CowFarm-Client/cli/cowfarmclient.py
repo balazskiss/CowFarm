@@ -43,6 +43,7 @@ class ServerConnection:
                 c['name'] = p[0]
                 c['x'] = int(p[1])
                 c['y'] = int(p[2])
+                c['dir'] = int(p[3])
                 self.cows.append(c)
             fd.needsRender = True;
 
@@ -123,13 +124,33 @@ class FarmDisplay:
 
         self.scr.refresh()
 
+
+    #trim print
+    def trint(self, y, x, str):
+        if y<1 or y>self.maxY-4:
+            return
+
+        if x<1 :
+            if x+len(str) < 1:
+                return
+            str = str[-1*x+1:]
+            x = 1
+
+        if x+len(str)>self.maxX-1 :
+            if x>self.maxX-1:
+                return
+            str = str[0:self.maxX-x]
+            
+        self.scr.addstr(y, x, str)
+
+
     def getMsgForCow(self, cow_id):
         for msg in sc.msgs:
             if msg["cow_id"] == cow_id:
                 return msg
         return None
 
-    def renderBubble(self, x, y, text):
+    def renderBubble(self, x, y, dir, text):
         maxWidth = 40
         words = text.split(" ")
         lines = []
@@ -170,10 +191,13 @@ class FarmDisplay:
             if len(line) > width:
                 width = len(line)
 
-        self.scr.addstr(y-height-2, x-11, "_"*(width+2))
-        self.scr.addstr(y-1, x-11, "-"*(width+2))
-        self.scr.addstr(y, x-4, "\\")
-        self.scr.addstr(y+1, x-3, "\\")
+        if dir == 0:
+            x = x-12
+            y = y-height-2
+        elif dir == 1:
+            x = x+16+12-(width+4)
+            y = y-height-2
+
 
         i=0
         while i<height:
@@ -189,10 +213,20 @@ class FarmDisplay:
                 else:
                     start = "| "
                     end = " |"
-            self.scr.addstr(y-height+i-1, x-12, start)
-            self.scr.addstr(y-height+i-1, x-10, lines[i])
-            self.scr.addstr(y-height+i-1, x-10+width, end)
+            self.trint(y+i+1, x, start)
+            self.trint(y+i+1, x+2, lines[i])
+            self.trint(y+i+1, x+width+2, end)
             i+=1
+
+        self.trint(y, x+1, "_"*(width+2))
+        self.trint(y+height+1, x+1, "-"*(width+2))
+
+        if dir == 0:
+            self.trint(y+height+2, x+8, "\\")
+            self.trint(y+height+3, x+9, "\\")
+        elif dir == 1:
+            self.trint(y+height+2, x+width+4-9, "/")
+            self.trint(y+height+3, x+width+4-10, "/")
 
 
 
@@ -201,18 +235,26 @@ class FarmDisplay:
         for cow in sc.cows:
             x = cow["x"]+1
             y = cow["y"]+1
+            dir = cow["dir"]
             msg = self.getMsgForCow(cow["id"])
 
-
-            self.scr.addstr(y+0, x, "^__^")
-            self.scr.addstr(y+1, x, "(oo)\\_______")
-            self.scr.addstr(y+2, x, "(__)\\       )\\/\\")
-            self.scr.addstr(y+3, x, "    ||----w |")
-            self.scr.addstr(y+4, x, "    ||     ||")
-            self.scr.addstr(y+5, x, cow["name"].center(16))
+            if dir == 0:
+                self.trint(y+0, x, "^__^")
+                self.trint(y+1, x, "(oo)\\_______")
+                self.trint(y+2, x, "(__)\\       )\\/\\")
+                self.trint(y+3, x+4,   "||----w |")
+                self.trint(y+4, x+4,   "||     ||")
+                self.trint(y+5, x, cow["name"].center(16))
+            elif dir == 1:
+                self.trint(y+0, x+12,           "^__^")
+                self.trint(y+1, x+4,    "_______/(oo)")
+                self.trint(y+2, x, "/\\/(       /(__)")
+                self.trint(y+3, x+3,   "| w----||")
+                self.trint(y+4, x+3,   "||     ||")
+                self.trint(y+5, x, cow["name"].center(16))
 
             if msg != None:
-                self.renderBubble(x, y, msg["text"])
+                self.renderBubble(x, y, dir, msg["text"])
 
         
 
