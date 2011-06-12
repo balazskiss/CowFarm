@@ -3,6 +3,7 @@ import time
 import thread
 import socket
 import curses
+import getopt
 
 class ServerConnection:
 
@@ -264,17 +265,50 @@ class FarmDisplay:
         self.scr.keypad(0)
         curses.echo()
         curses.nocbreak()
+        curses.noraw()
         curses.endwin()
 
 
+
+def usage():
+    print "Usage:"
+    print "cowfarmclient [-h, --help] [-s host, --host=host] [-p port, --port=port]"
+    print "\t-h: Prints this message"
+    print "\t-s hostname: Sets server host"
+    print "\t-p port: Sets port number"
 
 
 
 if __name__=='__main__':
 
     #TODO: read parameters: --host --port --name --farm
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hs:p:", ["help", "host=", "port="])
+    except getopt.GetoptError, err:
+        print str(err) # will print something like "option -a not recognized"
+        usage()
+        sys.exit(2)
 
-    sc = ServerConnection("localhost", 8765)
+    host = "localhost"
+    port = 8765
+
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-s", "--host"):
+            host = a
+        elif o in ("-p", "--port"):
+            port = int(a)
+        else:
+            assert False, "unhandled option"
+
+
+    try:
+        sc = ServerConnection(host, port)
+    except:
+        print "Unable to connect to %s on port %d" % (host, port)
+        sys.exit(2)
 
     while True:
         try:
