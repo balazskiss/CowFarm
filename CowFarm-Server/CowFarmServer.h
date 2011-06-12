@@ -20,8 +20,8 @@ public:
     CowFarmServer(int port = 8765);
     virtual ~CowFarmServer();
 private:
-    vector<Farm *> farms;
-    vector<Cow *> cows;
+    set<Farm *> farms;
+    set<Cow *> cows;
     
     Cow *findCow(int socket);
     Cow *findCow(string name);

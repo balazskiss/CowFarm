@@ -20,6 +20,7 @@
 
 using namespace std;
 
+
 CowFarmServer::CowFarmServer(int port) {
     int sock_server, sock_client;
     struct sockaddr_in serv_addr;
@@ -54,14 +55,18 @@ CowFarmServer::CowFarmServer(int port) {
                  
                  //New connection
                  if (i == sock_server){
-                     //cout << "new connection" << endl;
+                     
+                     
                      sock_client = accept(sock_server, 0, 0);
                      FD_SET (sock_client, &active_fd_set);
                      
+                     cout << "New connection: " << sock_client << endl;
+                     
                      Cow *new_cow = new Cow(sock_client);
-                     cows.push_back(new_cow);
-                     new_cow->msg_nl("Welcome to CowFarm!");
-                     new_cow->msg_nl("Please introduce yourself! (Type: 'name: Your Name')");
+                     cows.insert(new_cow);
+                     
+                     //new_cow->msg_nl("Welcome to CowFarm!");
+                     //new_cow->msg_nl("Please introduce yourself! (Type: 'name: Your Name')");
                  }
                  
                  //Data from existing connection
@@ -70,15 +75,34 @@ CowFarmServer::CowFarmServer(int port) {
                      nbytes = read (i, buf, 1024);
                      
                      if(nbytes == -1)
-                         cout << "error" << endl;
+                         cout << "Socket error: " << i << endl;
                      else if(nbytes == 0){
                          close (i);
                          FD_CLR (i, &active_fd_set);
-                         cout << "closed" << endl;
+                         
+                         cout << "Connection closed: " << i <<  endl;
+                         
+                         //remove cow and empty farms
+                         Cow *cow = findCow(i);
+                         Farm *farm = cow->getFarm();
+                         if(farm != 0){
+                             if(farm->numberOfCows() == 1){
+                                 delete cow->getFarm();
+                                 farms.erase(farm);
+                             }else{
+                                 cow->getFarm()->removeCow(cow);
+                                 cow->getFarm()->cowList();
+                             }
+                         }
+                         delete findCow(i);
+                         cows.erase(cow);
+                         
                      }else{
-                         for(unsigned j=0; j<strlen(buf); j++)
+                         for(unsigned j=0; j<strlen(buf); j++){
                              if(buf[j] == '\n') buf[j] = '\0';
-                         //cout << "data received: "  << buf << endl;
+                             if(buf[j] == '\r') buf[j] = '\0';
+                         }
+                         cout << "Data from "  << i << ": " << buf << endl;
                          
                          parseMessageFromCow(findCow(i), buf);
                      }
@@ -95,57 +119,73 @@ CowFarmServer::~CowFarmServer() {
 }
 
 Cow *CowFarmServer::findCow(int socket){
-    for(unsigned i=0; i<cows.size(); i++){
-        if(cows[i]->getSocket() == socket)
-            return cows[i];
+    set<Cow *>::iterator it;
+    for(it=cows.begin(); it!=cows.end(); ++it){
+        Cow *cow = *it;
+        if(cow->getSocket() == socket)
+            return cow;
     }
     return 0;
 }
 
 Cow *CowFarmServer::findCow(string name){
-    for(unsigned i=0; i<cows.size(); i++){
-        if(cows[i]->getName() == name)
-            return cows[i];
+    set<Cow *>::iterator it;
+    for(it=cows.begin(); it!=cows.end(); ++it){
+        Cow *cow = *it;
+        if(cow->getName() == name)
+            return cow;
     }
     return 0;
 }
 
 Farm *CowFarmServer::findFarm(string name){
-    for(unsigned i=0; i<farms.size(); i++){
-        if(farms[i]->getName() == name)
-            return farms[i];
+    set<Farm *>::iterator it;
+    for(it=farms.begin(); it!=farms.end(); ++it){
+        Farm *farm = *it;
+        if(farm->getName() == name)
+            return farm;
     }
     return 0;
 }
 
 
-void CowFarmServer::parseMessageFromCow(Cow *cow, char *message){
-    
-    //DEBUG INFO
-    cout << "Cows: " << cows.size() << endl;
-    cout << "Farms: " << farms.size() << endl;
-    
+void CowFarmServer::parseMessageFromCow(Cow *cow, char *message){    
     
     string msg(message);
+    istringstream msg_ss(msg);
     
-    if(msg.substr(0, 6) == "name: "){
-        string new_name = msg.substr(6, msg.size()-7);
+    string cmd;
+    getline(msg_ss, cmd, ':');
+    if(msg_ss.fail())
+        getline(msg_ss, cmd);
+    else
+        msg_ss.ignore(1);
+       
+    cout << "Parsing command: '" << cmd << "'" << endl;
+    
+    if(cmd == "name"){
+        string new_name;
+        getline(msg_ss, new_name);
+        
         if(findCow(new_name)){
             cow->msg_nl("Name already taken!");
         }else{
             cow->setName(new_name);
+            cow->msg_nl("OK");
         }
     }
     
-    else if(msg.substr(0, 6) == "join: "){
-        string new_farm = msg.substr(6, msg.size()-7);
+    else if(cmd == "join"){
+        string new_farm;
+        getline(msg_ss, new_farm);
+        
         if(cow->getName().empty()){
             cow->msg_nl("Set your name first!");
         }else{
             Farm *farm = findFarm(new_farm);
             if(farm == 0){
                 farm = new Farm(new_farm);
-                farms.push_back(farm);
+                farms.insert(farm);
             }
             cow->setFarm(farm);
             farm->cowList();
@@ -155,8 +195,9 @@ void CowFarmServer::parseMessageFromCow(Cow *cow, char *message){
         
     }
     
-    else if(msg.substr(0, 5) == "msg: "){
-        string message = msg.substr(5, msg.size()-6);
+    else if(cmd == "msg"){
+        string message;
+        getline(msg_ss, message);
                 
         if(!cow->getFarm()){
             cow->msg_nl("Join a farm first!");
@@ -165,18 +206,31 @@ void CowFarmServer::parseMessageFromCow(Cow *cow, char *message){
         }
     }
     
-    else if(msg.substr(0, 8) == "farmlist"){
+    else if(cmd == "farmlist"){
         if(cow->getName().empty()){
             cow->msg_nl("Set your name first!");
         }else{
             ostringstream ss;
             ss << "farmlist: " << farms.size() << endl;
 
-            for(unsigned i=0; i<farms.size(); i++)
-                ss << farms[i]->getName() << endl;
+            set<Farm *>::iterator it;
+            for(it=farms.begin(); it!=farms.end(); ++it)
+                ss << (*it)->getName() << endl;
 
             cow->msg(ss.str());
         }
+    }
+    
+    else if(cmd == "move"){
+        string dx_str, dy_str;
+        getline(msg_ss, dx_str, ',');
+        getline(msg_ss, dy_str);
+        
+        cow->move(
+                cow->getXPosition() + atoi(dx_str.c_str()),
+                cow->getYPosition() + atoi(dy_str.c_str()));
+        cow->getFarm()->cowList();
+        
     }
     
     else{
