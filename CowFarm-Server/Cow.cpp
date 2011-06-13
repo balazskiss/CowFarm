@@ -22,12 +22,6 @@ Cow::Cow(int socket) {
     this->dir = 1;
 }
 
-Cow::Cow(const Cow& orig) {
-}
-
-Cow::~Cow() {
-}
-
 
 Cow& Cow::msg(string message){
     const char *msg = message.c_str();

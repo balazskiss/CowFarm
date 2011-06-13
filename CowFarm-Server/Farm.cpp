@@ -14,12 +14,6 @@ Farm::Farm(string name) {
     this->name = name;
 }
 
-Farm::Farm(const Farm& orig) {
-}
-
-Farm::~Farm() {
-}
-
 string Farm::getName(){
     return name;
 }

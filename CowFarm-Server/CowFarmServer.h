@@ -15,10 +15,19 @@
 
 using namespace std;
 
+/**
+ * CowFarmServer class
+ * It handles the cows, the farms, and the sockets
+ * @param port
+ */
 class CowFarmServer {
 public:
+    /**
+     * Initializes a server on given port
+     * @param port the port number
+     */
     CowFarmServer(int port = 8765);
-    virtual ~CowFarmServer();
+    
 private:
     set<Farm *> farms;
     set<Cow *> cows;

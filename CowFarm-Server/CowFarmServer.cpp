@@ -26,26 +26,29 @@ CowFarmServer::CowFarmServer(int port) {
     struct sockaddr_in serv_addr;
     char buf[1024];
     int nbytes;
-    
-    cout << "Starting CowFarm-Server on port " << port << endl;
-    
     fd_set active_fd_set, read_fd_set;
     
+    cout << "Starting CowFarm-Server on port " << port << endl;    
     
+    //setup ocket
     sock_server = socket(AF_INET, SOCK_STREAM, 0);
-    
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(port);
+    
+    //bind the socket
     if(bind(sock_server, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
         cout << "Binding error";
     
+    //listen on port
     if(listen(sock_server, 5) < 0)
         cout << "Unable to listen on port 8765";
     
+    //init sets
     FD_ZERO (&active_fd_set);
     FD_SET (sock_server, &active_fd_set);
     
+    //main loop
     while(1){
         read_fd_set = active_fd_set;
         select (FD_SETSIZE, &read_fd_set, NULL, NULL, NULL);
@@ -65,8 +68,8 @@ CowFarmServer::CowFarmServer(int port) {
                      Cow *new_cow = new Cow(sock_client);
                      cows.insert(new_cow);
                      
-                     //new_cow->msg_nl("Welcome to CowFarm!");
-                     //new_cow->msg_nl("Please introduce yourself! (Type: 'name: Your Name')");
+                     new_cow->msg_nl("Welcome to CowFarm!");
+                     new_cow->msg_nl("Please introduce yourself! (Type: 'name: Your Name')");
                  }
                  
                  //Data from existing connection
@@ -83,6 +86,7 @@ CowFarmServer::CowFarmServer(int port) {
                          cout << "Connection closed: " << i <<  endl;
                          
                          //remove cow and empty farms
+                         //TODO: should be in cow's destructor
                          Cow *cow = findCow(i);
                          Farm *farm = cow->getFarm();
                          if(farm != 0){
@@ -113,9 +117,6 @@ CowFarmServer::CowFarmServer(int port) {
         
     }
     
-}
-
-CowFarmServer::~CowFarmServer() {
 }
 
 Cow *CowFarmServer::findCow(int socket){
