@@ -16,21 +16,27 @@
     
         <script>
 
+            var _hostname = "localhost"
+            var _port = 8765
+
             var _jssocket = null;
             var _farms = new Array();
             var _cows = new Array();
             var _msgs = new Array();
             var _farm = new Array();
+
+            var _cowing = false;
             
 
             $(function(){
-                var so = new SWFObject("JsSocket.swf", "mymovie", "470", "200", "8", "#FFFFFF");
+                var so = new SWFObject("JsSocket.swf", "mymovie", "1", "1", "8", "#FFFFFF");
                 so.addParam("allowScriptAccess", "always");
    		so.write("flashcontent");
 
                 $("#send").click(function()
                 {
-                    _jssocket.write($("#message").val()+"\n");
+                    if($("#message").val() != "")
+                        _jssocket.write("msg: "+$("#message").val()+"\n");
                     $("#message").val("");
                 });
 
@@ -38,28 +44,32 @@
             });
 
             function getArrows(ev) {
-
                 arrows=((ev.which)||(ev.keyCode));
 
-                switch(arrows) {
+                if(!_cowing){
+                    if(arrows == 13)
+                        $("#send").click();
+                    return;
+                }
 
+
+                switch(arrows) {
                  case 37:
                    _jssocket.write("move: -1, 0\n");
                    break;
-
                  case 38:
                    _jssocket.write("move: 0, -1\n");
                    break;
-
                  case 39:
                    _jssocket.write("move: 1, 0\n");
                    break;
-
                  case 40:
                    _jssocket.write("move: 0, 1\n");
                    break;
-
-                  }
+                 case 13:
+                     $("#message").focus();
+                     break
+                }
              }
 
 
@@ -129,16 +139,17 @@
             function join_farm(farm){
                 _jssocket.write("join: "+farm+"\n");
                 $("#dialog-farm").dialog("close");
+                _cowing = true;
             }
             
             $(document).ready(function() {
                 dialog_connect();
-                var t = setTimeout("jssocket_connect()", 2000);
+                jssocket_connect()
             });
 
 
             function parse_farmlist(str){
-                _farms = new Array
+                _farms.length = 0
 
                 lines = str.split("\n");
                 lines.shift();
@@ -154,7 +165,7 @@
             }
 
             function parse_cowlist(str){
-                _cows = new Array();
+                _cows.length = 0;
 
                 lines = str.split("\n");
                 lines.shift();
@@ -170,6 +181,7 @@
                     cow["name"] = p[0].substr(1);
                     cow["x"] = parseInt(p[1]);
                     cow["y"] = parseInt(p[2]);
+                    cow["dir"] = parseInt(p[3]);
 
                     _cows.push(cow);
 
@@ -205,7 +217,30 @@
                 return n_str;
             }
 
-            function render_bubble(x, y, text){
+            function str_center(str, width){
+                while(str.length < width){
+                    str = " " + str;
+                    if(str.length < width)
+                        str = str + " ";
+                }
+                return str;
+            }
+
+            function trint(y, x, str){
+                if(y<0)
+                    return
+
+                if(x<1){
+                    if (x+str.length < 1)
+                        return
+                    str = str.substr(-1*x+1)
+                    x = 1
+                }
+
+                render_string(x, y, str);
+            }
+
+            function render_bubble(x, y, dir, text){
                 var max_width = 40;
                 words = text.split(" ");
                 lines = new Array();
@@ -216,7 +251,7 @@
 
                     if(word.length < max_width){
                         if(tmp.length+word.length+1 <= max_width){
-                            if(word.length == 0)
+                            if(tmp.length == 0)
                                 tmp = word
                             else
                                 tmp = tmp + " " + word
@@ -255,10 +290,14 @@
                     if(lines[i].length > width)
                         width = lines[i].length
 
-                render_string(x-11, y-height-2, str_repeat("_", width+2))
-                render_string(x-11, y-1, str_repeat("-", width+2))
-                render_string(x-4, y, "\\")
-                render_string(x-3, y+1, "\\")
+                if (dir == 0){
+                    x = x-12;
+                    y = y-height-2;
+                }else if( dir == 1){
+                    x = x+16+12-(width+4);
+                    y = y-height-2;
+                }
+
 
                 for(var i=0; i<height; i++){
                     var start = "< "
@@ -277,9 +316,22 @@
                         }
                     }
 
-                    render_string(x-12, y-height+i-1, start)
-                    render_string(x-10, y-height+i-1, lines[i])
-                    render_string(x-10+width, y-height+i-1, end)
+                    trint(y+i+1, x, start)
+                    trint(y+i+1, x+2, lines[i])
+                    trint(y+i+1, x+width+2, end)
+                }
+
+                //Print top and bottom of bubble
+                trint(y, x+1, str_repeat("_", width+2))
+                trint(y+height+1, x+1, str_repeat("-", width+2))
+
+                //Print bubble line
+                if (dir == 0){
+                    trint(y+height+2, x+8, "\\")
+                    trint(y+height+3, x+9, "\\")
+                }else if( dir == 1){
+                    trint(y+height+2, x+width+4-9, "/")
+                    trint(y+height+3, x+width+4-10, "/")
                 }
 
             }
@@ -307,17 +359,27 @@
                 cow = _cows[cow_index];
                 x = cow["x"]
                 y = cow["y"]
+                dir = cow["dir"]
                 msg = get_msg_for_cow(cow_index);
 
-                render_string(x, y+0, "^__^")
-                render_string(x, y+1, "(oo)\\_______")
-                render_string(x, y+2, "(__)\\       )\\/\\")
-                render_string(x, y+3, "    ||----w |")
-                render_string(x, y+4, "    ||     ||")
-                render_string(x, y+5, cow["name"])
+                if(dir == 0){
+                    trint(y+0, x, "^__^")
+                    trint(y+1, x, "(oo)\\_______")
+                    trint(y+2, x, "(__)\\       )\\/\\")
+                    trint(y+3, x+4,   "||----w |")
+                    trint(y+4, x+4,   "||     ||")
+                    trint(y+5, x, str_center(cow["name"], 16))
+                }else if(dir == 1){
+                    trint(y+0, x+12,           "^__^")
+                    trint(y+1, x+4,    "_______/(oo)")
+                    trint(y+2, x, "/\\/(       /(__)")
+                    trint(y+3, x+3,   "| w----||")
+                    trint(y+4, x+3,   "||     ||")
+                    trint(y+5, x, str_center(cow["name"], 16))
+                }
 
                 if(msg != null)
-                    render_bubble(x, y, msg["text"]);
+                    render_bubble(x, y, dir, msg["text"]);
             }
 
             function render_farm(){
@@ -336,16 +398,6 @@
             }
 
 
-
-
-            function jssocket_connect(){
-                if(_jssocket != null){
-                    _jssocket.connect("127.0.0.1", "8765");
-                    $("#messages").append("Connecting<br />\n");
-                }
-                $("#dialog-connect").dialog( "close" );
-                dialog_name();
-            }
             
             
             function jssocket_init()
@@ -360,27 +412,40 @@
                 _jssocket.setCallBack("ioerror","soc_error");
             }
 
+            function jssocket_connect(){
+                if(_jssocket != null){
+                    _jssocket.connect(_hostname, _port);
+                    //$("#messages").append("Connecting<br />\n");
+                }else{
+                    setTimeout("jssocket_connect()", 1);
+                }
+            }
+
 
 
 
 
             // Called when socket connects
             function soc_connect(){
-                $("#messages").append("Socket Connected<br />\n");;
+                //$("#messages").append("Socket Connected<br />\n");;
+                $("#dialog-connect").dialog( "close" );
+                dialog_name();
             }
 
             function soc_error(){
-                $("#messages").append("There was an error connecting<br />\n");;
+                //$("#messages").append("There was an error connecting<br />\n");;
+                $("#dialog-connect .ui-state-error").show();
+                $("#dialog-connect .connecting").hide();
             }
             
             // Called when socket is closed
             function soc_closed(){
-                $("#messages").append("Socket Closed<br />\n");;
+                //$("#messages").append("Socket Closed<br />\n");;
             }
             
             // Called when socket receives message
             function soc_msg(msg){
-                $("#messages").append("Recieved Message: "+msg);
+                //$("#messages").append("Recieved Message: "+msg);
 
                 if(msg == "Name already taken!\n"){
                     $("#dialog-name p").show();
@@ -418,7 +483,8 @@
     <body onkeydown="getArrows(event)">
         
         <div id="dialog-connect" title="Connecting" style="display:none">
-            <p>Connecting to server in progress...</p>
+            <p class="ui-state-error" style="display:none;">Connection failed</p>
+            <p class="connecting">Connecting to server in progress...</p>
         </div>
 
         <div id="dialog-name" title="Please enter your name" style="display:none">
@@ -446,7 +512,7 @@
 
         <div id="status">
      
-            <textarea id="messages" readonly="readonly"></textarea>
+            <textarea id="messages" readonly="readonly" style="display:none"></textarea>
 
             <div id="flashcontent">
               This text is replaced by the Flash movie.
@@ -459,7 +525,9 @@
         </div>
 
         <div id="msg_input">
-            <input type="text" id="message" value="" class="send" />
+            <input type="text" id="message" value="" class="send"
+                   onfocus="_cowing=false;"
+                   onblur="_cowing=true"/>
             <button id="send" class="send" >Send</button>
         </div>
 

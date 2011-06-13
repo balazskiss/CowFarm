@@ -1,3 +1,6 @@
+body{
+}
+
 input, textarea {
     font:           11px Consolas, Monaco, Courier, monospace;
     padding:        2px;
@@ -13,15 +16,24 @@ input, textarea {
 
 
 #status{
-    float:right;
-    background-color: #CCC;
-    border:5px solid gray;
-    visibility: hidden;
+    position:absolute;
 }
 
 #msg_input{
     background-color: #DDD;
     padding:10px;
+    margin-bottom: 10px;
     position:absolute;
     bottom: 0;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    -webkit-border-eadius: 5px;
+}
+#message{
+    width: 400px;
+}
+
+#farm{
+    overflow:hidden;
+    background-color: white;
 }
