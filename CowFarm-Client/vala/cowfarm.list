@@ -1,0 +1,9 @@
+%product CowFarm Client
+%copyright 2011 by Balazs Kiss
+%vendor Balazs Kiss
+%description Client program for the CowFarm server
+%version 1.0
+%readme README
+%license LICENSE
+
+f 755 root sys /usr/bin/cowfarm cowfarm
