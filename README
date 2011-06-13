@@ -1,1 +1,34 @@
 CowFarm - a lightweight chat program with cows
+
+                    ________
+                   < ?{!@#[ >
+                    --------
+             ^__^   /     _____
+     _______/(oo)  /     < moo >
+ /\/(       /(__)         -----
+    | w----||                    \   ^__^
+    ||     ||                     \  (oo)\_______
+     john doe                        (__)\       )\/\
+                                         ||----w |
+                                         ||     ||
+                                      john appleseed 
+
+CowFarm-Server
+==============
+Chat server written in C++. Works on every UNIX-like machine.
+To comile type: make
+To start server type: ./cowfarm-server
+
+CowFarm-Client
+==============
+
+cli:  A CLI cient written in Python
+www:  An HTML client, works in mayor browsers (Flash required)
+qt:   Desktop application. Qt wrapping of www client. (based on webkit)
+vala: Desktop application. GTK wrapping of www cient. (based on webkit)
+      .deb package also available
+
+See screenshots.
+
+by: Balazs Kiss
+dev@balazskiss.name
